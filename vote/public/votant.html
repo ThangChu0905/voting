@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voting Page | Online Voting System</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .vote-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            transition: transform 0.3s ease;
+        }
+
+        .vote-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .vote-option {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 2px solid #e1e1e1;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .vote-option:hover {
+            border-color: #4CAF50;
+            background: #f9f9f9;
+        }
+
+        .vote-option.selected {
+            border-color: #4CAF50;
+            background: #E8F5E9;
+        }
+
+        .vote-radio {
+            margin-right: 1rem;
+            transform: scale(1.5);
+        }
+
+        .vote-label {
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .submit-btn {
+            background: #4CAF50;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .submit-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .results-display {
+            margin-top: 2rem;
+        }
+
+        .vote-bar {
+            background: #f0f0f0;
+            height: 25px;
+            border-radius: 12.5px;
+            margin: 1rem 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .vote-progress {
+            height: 100%;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+        }
+
+        .vote-count {
+            margin-left: 1rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .success-message {
+            background: #E8F5E9;
+            color: #2E7D32;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        /* Thêm style cho login */
+        .login-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e1e1e1;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .login-input:focus {
+            border-color: #4CAF50;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        .login-input::placeholder {
+            color: #999;
+        }
+
+        /* Thêm style cho active users */
+        .active-users {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .user-tag {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            background: #4CAF50;
+            color: white;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Cast Your Vote</h1>
+            <p class="subtitle">Make your choice count!</p>
+        </header>
+
+        <main>
+            <!-- Login Section -->
+            <div class="vote-card" id="loginSection">
+                <h2>Join Voting Session</h2>
+                <div class="vote-option">
+                    <input type="text" id="username" class="login-input" 
+                           placeholder="Enter your name to join" required minlength="3">
+                </div>
+                <button id="loginBtn" class="submit-btn">Join Session</button>
+            </div>
+
+            <!-- Active Users Section -->
+            <div id="activeUsers" class="active-users" style="display: none;">
+                <h3>Active Participants:</h3>
+                <div id="userList"></div>
+            </div>
+
+            <!-- Voting Section -->
+            <div id="votingSection" style="display: none;">
+                <div class="vote-card">
+                    <h2>Select Your Option</h2>
+                    <form id="voteForm">
+                        <div class="vote-option">
+                            <input type="radio" name="vote" value="agree" class="vote-radio" id="agree">
+                            <label for="agree" class="vote-label">Agree</label>
+                        </div>
+                        <div class="vote-option">
+                            <input type="radio" name="vote" value="disagree" class="vote-radio" id="disagree">
+                            <label for="disagree" class="vote-label">Disagree</label>
+                        </div>
+                        <div class="vote-option">
+                            <input type="radio" name="vote" value="abstain" class="vote-radio" id="abstain">
+                            <label for="abstain" class="vote-label">Abstain</label>
+                        </div>
+                        <button type="submit" class="submit-btn">Submit Vote</button>
+                    </form>
+                </div>
+
+                <div class="results-display" style="display: none;">
+                    <h2>Current Results</h2>
+                    <div class="vote-results">
+                        <!-- Results will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const loginSection = document.getElementById('loginSection');
+        const votingSection = document.getElementById('votingSection');
+        const activeUsers = document.getElementById('activeUsers');
+        const voteForm = document.getElementById('voteForm');
+        const resultsDisplay = document.querySelector('.results-display');
+        let username = '';
+
+        // Login handling
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            username = document.getElementById('username').value.trim();
+            if (username.length >= 3) {
+                socket.emit('userLogin', username);
+                loginSection.style.display = 'none';
+                votingSection.style.display = 'block';
+                activeUsers.style.display = 'block';
+                
+                // Show welcome message
+                const welcomeMsg = document.createElement('div');
+                welcomeMsg.className = 'success-message';
+                welcomeMsg.textContent = `Welcome, ${username}!`;
+                votingSection.prepend(welcomeMsg);
+                
+                setTimeout(() => welcomeMsg.remove(), 3000);
+            }
+        });
+
+        // Enter key for login
+        document.getElementById('username').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('loginBtn').click();
+            }
+        });
+
+        // Update active users list
+        socket.on('updateUserList', (users) => {
+            const userList = document.getElementById('userList');
+            userList.innerHTML = users.map(user => `
+                <span class="user-tag">
+                    ${user.username} ${user.hasVoted ? '✓' : ''}
+                </span>
+            `).join('');
+        });
+
+        // Vote option selection
+        document.querySelectorAll('.vote-option').forEach(option => {
+            const radio = option.querySelector('input[type="radio"]');
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.vote-option').forEach(opt => 
+                    opt.classList.remove('selected'));
+                option.classList.add('selected');
+                radio.checked = true;
+            });
+        });
+
+        // Handle vote submission
+        voteForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(voteForm);
+            const vote = formData.get('vote');
+            
+            if (vote) {
+                socket.emit('submitVote', vote);
+                voteForm.style.display = 'none';
+                
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.className = 'success-message';
+                successMsg.textContent = 'Thank you for voting!';
+                voteForm.parentNode.appendChild(successMsg);
+                
+                // Show results
+                resultsDisplay.style.display = 'block';
+            }
+        });
+
+        // Update results when received from server
+        socket.on('voteResults', (results) => {
+            const totalVotes = Object.values(results).reduce((a, b) => a + b, 0);
+            const resultsHtml = Object.entries(results).map(([option, count]) => `
+                <div class="vote-result">
+                    <h3>${option.charAt(0).toUpperCase() + option.slice(1)}</h3>
+                    <div class="vote-bar">
+                        <div class="vote-progress" style="width: ${(count/totalVotes*100)}%">
+                            ${Math.round(count/totalVotes*100)}%
+                        </div>
+                    </div>
+                    <span class="vote-count">${count} votes</span>
+                </div>
+            `).join('');
+            
+            document.querySelector('.vote-results').innerHTML = resultsHtml;
+        });
+
+        // Handle session events
+        socket.on('votingStarted', () => {
+            if (username) {
+                voteForm.style.display = 'block';
+                document.querySelectorAll('.vote-button').forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('selected', 'disabled');
+                });
+            }
+        });
+
+        socket.on('votingStopped', () => {
+            voteForm.style.display = 'none';
+            const message = document.createElement('div');
+            message.className = 'success-message';
+            message.textContent = 'Voting session has ended';
+            votingSection.prepend(message);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Online Voting System</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2E7D32;
+            margin: 1rem 0;
+        }
+
+        .vote-progress {
+            height: 25px;
+            background: #f0f0f0;
+            border-radius: 12.5px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+        }
+
+        .control-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 1rem;
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .end-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .live-feed {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .feed-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .feed-item:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .new-vote {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Admin Dashboard</h1>
+            <p class="subtitle">Monitor and manage voting session</p>
+        </header>
+
+        <main>
+            <div class="control-panel">
+                <h2>Session Controls</h2>
+                <button class="control-btn start-btn" id="startSession">Start New Session</button>
+                <button class="control-btn end-btn" id="endSession">End Session</button>
+            </div>
+
+            <div class="dashboard">
+                <div class="stat-card">
+                    <h3>Total Valid Votes</h3>
+                    <div class="stat-number" id="totalVotes">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Voters</h3>
+                    <div class="stat-number" id="activeVoters">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Participation Statistics</h3>
+                    <div>Total Users: <span id="totalUsers">0</span></div>
+                    <div>Voted: <span id="votedCount">0</span></div>
+                    <div>Not Voted: <span id="notVotedCount">0</span></div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <h2>Live Results</h2>
+                <div id="voteResults">
+                    <!-- Results will be populated by JavaScript -->
+                </div>
+                <div class="live-feed" id="voteFeed">
+                    <!-- Live feed will be populated by JavaScript -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let isSessionActive = false;
+        const votedUsers = new Set();
+
+        // Vote option mapping
+        const VOTE_OPTIONS = {
+            approve: 'tanThanh',
+            oppose: 'phanDoi',
+            abstain: 'phieuTrang',
+            notParticipating: 'khongThamGia'
+        };
+
+        // Update results display with improved counting
+        function updateResults(results) {
+            // Calculate total valid votes (excluding not participating)
+            const totalVotes = results.tanThanh + results.phanDoi + results.phieuTrang;
+            document.getElementById('totalVotes').textContent = totalVotes;
+
+            const resultsHtml = Object.entries(results).map(([option, count]) => {
+                // Skip percentage for not participating
+                if (option === 'khongThamGia') {
+                    return `
+                        <div class="vote-result">
+                            <h3>Not Participating</h3>
+                            <span class="vote-count">${count} users</span>
+                        </div>
+                    `;
+                }
+
+                const percentage = totalVotes > 0 ? (count/totalVotes*100) : 0;
+                return `
+                    <div class="vote-result">
+                        <h3>${getVoteOptionName(option)}</h3>
+                        <div class="vote-progress">
+                            <div class="progress-bar" style="width: ${percentage}%">
+                                ${Math.round(percentage)}%
+                            </div>
+                        </div>
+                        <span class="vote-count">${count} votes</span>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('voteResults').innerHTML = resultsHtml;
+        }
+
+        // Convert vote option codes to display names
+        function getVoteOptionName(option) {
+            const names = {
+                tanThanh: 'Approve',
+                phanDoi: 'Oppose',
+                phieuTrang: 'Abstain'
+            };
+            return names[option] || option;
+        }
+
+        // Update participation statistics
+        function updateStatistics(results, totalUsers) {
+            const votedCount = results.tanThanh + results.phanDoi + results.phieuTrang;
+            const notVotedCount = totalUsers - votedCount;
+            
+            document.getElementById('totalUsers').textContent = totalUsers;
+            document.getElementById('votedCount').textContent = votedCount;
+            document.getElementById('notVotedCount').textContent = notVotedCount;
+        }
+
+        // Handle session controls
+        document.getElementById('startSession').addEventListener('click', () => {
+            if (!isSessionActive) {
+                socket.emit('startSession');
+                isSessionActive = true;
+                votedUsers.clear(); // Clear voted users list on new session
+            }
+        });
+
+        document.getElementById('endSession').addEventListener('click', () => {
+            if (isSessionActive) {
+                socket.emit('endSession');
+                isSessionActive = false;
+            }
+        });
+
+        // Socket event handlers
+        socket.on('voteResults', (results) => {
+            updateResults(results);
+            updateStatistics(results, document.getElementById('activeVoters').textContent);
+        });
+        
+        socket.on('newVote', (data) => {
+            // Check for duplicate votes
+            if (votedUsers.has(data.userId)) {
+                console.warn('Duplicate vote detected:', data.userId);
+                return;
+            }
+            
+            votedUsers.add(data.userId);
+            
+            const feed = document.getElementById('voteFeed');
+            const item = document.createElement('div');
+            item.className = 'feed-item new-vote';
+            item.innerHTML = `
+                <span>New vote from ${data.username || 'Anonymous'}: ${getVoteOptionName(data.option)}</span>
+                <span>${new Date().toLocaleTimeString()}</span>
+            `;
+            feed.insertBefore(item, feed.firstChild);
+        });
+
+        socket.on('updateVoters', (count) => {
+            document.getElementById('activeVoters').textContent = count;
+            // Update statistics when voter count changes
+            socket.emit('requestResults');
+        });
+
+        // Request initial results
+        socket.emit('requestResults');
+    </script>
+</body>
+</html>
